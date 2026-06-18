@@ -1,0 +1,12 @@
+{
+  "name": "memory-trainer",
+  "version": "1.0.0",
+  "description": "memory trainer app",
+  "license": "ISC",
+  "author": "Veronika Seyfriedová",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
