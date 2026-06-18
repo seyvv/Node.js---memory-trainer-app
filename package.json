@@ -1,12 +1,25 @@
 {
   "name": "memory-trainer",
   "version": "1.0.0",
-  "description": "memory trainer app",
+  "description": "Memory trainer game in Node.js",
   "license": "ISC",
   "author": "Veronika Seyfriedová",
-  "type": "commonjs",
-  "main": "index.js",
+  "type": "module",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node --watch server.js",
+    "dev": "nodemon server.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.14",
+    "@hono/node-ws": "^1.3.1",
+    "better-sqlite3": "^12.11.1",
+    "hono": "^4.12.26"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
   }
 }
