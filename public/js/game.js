@@ -27,11 +27,30 @@ socket.addEventListener('message', (event) => {
         sequenceElement.textContent = message.sequence.join(' → ');
         playerAnswersElement.textContent = '';
         lastAnswerElement.textContent = 'Sekvence vygenerována. Teď ji zopakuj na ovladači.';
+        startGameButton.disabled = true;
     }
 
     if (message.type === 'answer-received') {
         lastAnswerElement.textContent = `Poslední odpověď: ${message.answer}`;
         playerAnswersElement.textContent = message.playerAnswers.join(' → ');
+
+        if (!message.isCurrentAnswerCorrect) {
+            lastAnswerElement.textContent = `Špatná odpověď: ${message.answer}`;
+        }
+    }
+
+    if (message.type === 'game-finished') {
+        statusElement.textContent = message.message;
+        startGameButton.disabled = false;
+
+        if (message.success && message.durationMs) {
+            const seconds = (message.durationMs / 1000).toFixed(2);
+            lastAnswerElement.textContent = `Hotovo za ${seconds} s.`;
+        }
+
+        if (!message.success) {
+            lastAnswerElement.textContent = `Správná sekvence byla: ${message.sequence.join(' → ')}`;
+        }
     }
 });
 

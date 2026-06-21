@@ -56,6 +56,7 @@ app.get(
                         sequence: sequence,
                         playerAnswers: [],
                         startedAt: Date.now(),
+                        finished: false,
                     });
 
                     broadcastToRoom(message.roomCode, {
@@ -71,13 +72,52 @@ app.get(
                         return;
                     }
 
+                    if (game.finished) {
+                        return;
+                    }
+
                     game.playerAnswers.push(message.answer);
+
+                    const currentIndex = game.playerAnswers.length - 1;
+                    const expectedAnswer = game.sequence[currentIndex];
+                    const isCurrentAnswerCorrect = message.answer === expectedAnswer;
 
                     broadcastToRoom(message.roomCode, {
                         type: 'answer-received',
                         answer: message.answer,
                         playerAnswers: game.playerAnswers,
+                        isCurrentAnswerCorrect: isCurrentAnswerCorrect,
                     });
+
+                    if (!isCurrentAnswerCorrect) {
+                        game.finished = true;
+
+                        broadcastToRoom(message.roomCode, {
+                            type: 'game-finished',
+                            success: false,
+                            message: 'Špatná odpověď. Konec hry.',
+                            sequence: game.sequence,
+                            playerAnswers: game.playerAnswers,
+                        });
+
+                        return;
+                    }
+
+                    if (game.playerAnswers.length === game.sequence.length) {
+                        game.finished = true;
+
+                        const finishedAt = Date.now();
+                        const durationMs = finishedAt - game.startedAt;
+
+                        broadcastToRoom(message.roomCode, {
+                            type: 'game-finished',
+                            success: true,
+                            message: 'Správně! Sekvence byla zopakována.',
+                            sequence: game.sequence,
+                            playerAnswers: game.playerAnswers,
+                            durationMs: durationMs,
+                        });
+                    }
                 }
             } catch (error) {
                 console.error(error);
