@@ -62,6 +62,15 @@ pagesRouter.get('/game/:roomCode', (c) => {
 
         <section class="game-box">
           <h2 id="status">Čekám na ovladač...</h2>
+
+          <button id="startGameButton">Start hry</button>
+
+          <h3>Sekvence:</h3>
+          <div id="sequence" class="sequence"></div>
+
+          <h3>Odpověď hráče:</h3>
+          <div id="playerAnswers" class="sequence"></div>
+
           <p id="lastAnswer">Zatím žádná odpověď.</p>
         </section>
       </main>

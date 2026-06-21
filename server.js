@@ -2,9 +2,24 @@ import { createNodeWebSocket } from '@hono/node-ws';
 import { serve } from '@hono/node-server';
 
 import { app } from './src/app.js';
-import { webSockets } from './src/webSockets.js';
+import { webSockets } from './src/websockets.js';
 
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
+
+const games = new Map();
+
+const colors = ['red', 'blue', 'green', 'yellow'];
+
+function generateSequence(length = 4) {
+    const sequence = [];
+
+    for (let i = 0; i < length; i++) {
+        const randomIndex = Math.floor(Math.random() * colors.length);
+        sequence.push(colors[randomIndex]);
+    }
+
+    return sequence;
+}
 
 app.get(
     '/ws',
@@ -34,10 +49,34 @@ app.get(
                     });
                 }
 
+                if (message.type === 'game-start') {
+                    const sequence = generateSequence(4);
+
+                    games.set(message.roomCode, {
+                        sequence: sequence,
+                        playerAnswers: [],
+                        startedAt: Date.now(),
+                    });
+
+                    broadcastToRoom(message.roomCode, {
+                        type: 'sequence-generated',
+                        sequence: sequence,
+                    });
+                }
+
                 if (message.type === 'controller-answer') {
+                    const game = games.get(message.roomCode);
+
+                    if (!game) {
+                        return;
+                    }
+
+                    game.playerAnswers.push(message.answer);
+
                     broadcastToRoom(message.roomCode, {
                         type: 'answer-received',
                         answer: message.answer,
+                        playerAnswers: game.playerAnswers,
                     });
                 }
             } catch (error) {
