@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node --watch server.js",
     "dev": "nodemon server.js",
-    "test": "jest"
+    "test": "ava"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.14",
@@ -18,7 +18,7 @@
     "hono": "^4.12.26"
   },
   "devDependencies": {
-    "jest": "^30.4.2",
+    "ava": "^8.0.0",
     "nodemon": "^3.1.14",
     "supertest": "^7.2.2"
   }
