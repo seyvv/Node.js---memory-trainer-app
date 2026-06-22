@@ -1,0 +1,32 @@
+[
+    {
+        "level": 1,
+        "sequenceLength": 3,
+        "showTimeMs": 800,
+        "pauseTimeMs": 300
+    },
+    {
+        "level": 2,
+        "sequenceLength": 4,
+        "showTimeMs": 750,
+        "pauseTimeMs": 280
+    },
+    {
+        "level": 3,
+        "sequenceLength": 5,
+        "showTimeMs": 700,
+        "pauseTimeMs": 260
+    },
+    {
+        "level": 4,
+        "sequenceLength": 6,
+        "showTimeMs": 650,
+        "pauseTimeMs": 240
+    },
+    {
+        "level": 5,
+        "sequenceLength": 7,
+        "showTimeMs": 600,
+        "pauseTimeMs": 220
+    }
+]

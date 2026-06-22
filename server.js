@@ -4,29 +4,18 @@ import { serve } from '@hono/node-server';
 import { app } from './src/app.js';
 import { webSockets } from './src/websockets.js';
 
+import {
+    calculateScore,
+    checkAnswer,
+    createNewGame,
+    createNextLevelGame,
+} from './src/services/gameService.js';
+
+import { saveScore } from './src/db/database.js';
+
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 
 const games = new Map();
-
-const colors = ['red', 'blue', 'green', 'yellow'];
-
-function generateSequence(length = 4) {
-    const sequence = [];
-
-    for (let i = 0; i < length; i++) {
-        const randomIndex = Math.floor(Math.random() * colors.length);
-        sequence.push(colors[randomIndex]);
-    }
-
-    return sequence;
-}
-
-function calculateScore(level, durationMs) {
-    const basePoints = level * 100;
-    const timeBonus = Math.max(0, 1000 - Math.floor(durationMs / 10));
-
-    return basePoints + timeBonus;
-}
 
 app.get(
     '/ws',
@@ -57,79 +46,96 @@ app.get(
                 }
 
                 if (message.type === 'game-start') {
-                    const level = 1;
-                    const sequence = generateSequence(level + 2);
+                    const game = createNewGame(message.playerName);
 
-                    games.set(message.roomCode, {
-                        level: level,
-                        score: 0,
-                        sequence: sequence,
-                        playerAnswers: [],
-                        startedAt: Date.now(),
-                        finished: false,
-                    });
+                    games.set(message.roomCode, game);
 
                     broadcastToRoom(message.roomCode, {
                         type: 'sequence-generated',
-                        level: level,
-                        score: 0,
-                        sequence: sequence,
+                        level: game.level,
+                        score: game.score,
+                        sequence: game.sequence,
+                        showTimeMs: game.levelConfig.showTimeMs,
+                        pauseTimeMs: game.levelConfig.pauseTimeMs,
+                    });
+
+                    broadcastToRoom(message.roomCode, {
+                        type: 'controller-state',
+                        enabled: false,
+                    });
+                }
+
+                if (message.type === 'sequence-shown') {
+                    const game = games.get(message.roomCode);
+
+                    if (!game || game.finished) {
+                        return;
+                    }
+
+                    game.canAnswer = true;
+
+                    broadcastToRoom(message.roomCode, {
+                        type: 'controller-state',
+                        enabled: true,
                     });
                 }
 
                 if (message.type === 'next-level') {
-                    const game = games.get(message.roomCode);
+                    const currentGame = games.get(message.roomCode);
 
-                    if (!game) {
+                    if (!currentGame) {
                         return;
                     }
 
-                    const nextLevel = game.level + 1;
-                    const sequence = generateSequence(nextLevel + 2);
+                    const nextGame = createNextLevelGame(currentGame);
 
-                    games.set(message.roomCode, {
-                        level: nextLevel,
-                        score: game.score,
-                        sequence: sequence,
-                        playerAnswers: [],
-                        startedAt: Date.now(),
-                        finished: false,
-                    });
+                    games.set(message.roomCode, nextGame);
 
                     broadcastToRoom(message.roomCode, {
                         type: 'sequence-generated',
-                        level: nextLevel,
-                        score: game.score,
-                        sequence: sequence,
+                        level: nextGame.level,
+                        score: nextGame.score,
+                        sequence: nextGame.sequence,
+                        showTimeMs: nextGame.levelConfig.showTimeMs,
+                        pauseTimeMs: nextGame.levelConfig.pauseTimeMs,
+                    });
+
+                    broadcastToRoom(message.roomCode, {
+                        type: 'controller-state',
+                        enabled: false,
                     });
                 }
 
                 if (message.type === 'controller-answer') {
                     const game = games.get(message.roomCode);
 
-                    if (!game) {
+                    if (!game || game.finished || !game.canAnswer) {
                         return;
                     }
 
-                    if (game.finished) {
-                        return;
-                    }
-
-                    game.playerAnswers.push(message.answer);
-
-                    const currentIndex = game.playerAnswers.length - 1;
-                    const expectedAnswer = game.sequence[currentIndex];
-                    const isCurrentAnswerCorrect = message.answer === expectedAnswer;
+                    const result = checkAnswer(game, message.answer);
 
                     broadcastToRoom(message.roomCode, {
                         type: 'answer-received',
                         answer: message.answer,
-                        playerAnswers: game.playerAnswers,
-                        isCurrentAnswerCorrect: isCurrentAnswerCorrect,
+                        playerAnswers: result.playerAnswers,
+                        isCurrentAnswerCorrect: result.isCorrect,
                     });
 
-                    if (!isCurrentAnswerCorrect) {
+                    if (!result.isCorrect) {
                         game.finished = true;
+                        game.canAnswer = false;
+
+                        saveScore({
+                            playerName: game.playerName,
+                            score: game.score,
+                            maxLevel: game.maxLevel,
+                        });
+
+                        broadcastToRoom(message.roomCode, {
+                            type: 'controller-state',
+                            enabled: false,
+                        });
 
                         broadcastToRoom(message.roomCode, {
                             type: 'game-finished',
@@ -139,19 +145,26 @@ app.get(
                             playerAnswers: game.playerAnswers,
                             level: game.level,
                             totalScore: game.score,
+                            maxLevel: game.maxLevel,
                         });
 
                         return;
                     }
 
-                    if (game.playerAnswers.length === game.sequence.length) {
+                    if (result.isLevelCompleted) {
                         game.finished = true;
+                        game.canAnswer = false;
 
                         const finishedAt = Date.now();
                         const durationMs = finishedAt - game.startedAt;
                         const roundScore = calculateScore(game.level, durationMs);
 
                         game.score = game.score + roundScore;
+
+                        broadcastToRoom(message.roomCode, {
+                            type: 'controller-state',
+                            enabled: false,
+                        });
 
                         broadcastToRoom(message.roomCode, {
                             type: 'game-finished',
@@ -163,6 +176,7 @@ app.get(
                             level: game.level,
                             roundScore: roundScore,
                             totalScore: game.score,
+                            maxLevel: game.maxLevel,
                         });
                     }
                 }

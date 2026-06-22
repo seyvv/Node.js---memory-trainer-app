@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import crypto from 'node:crypto';
 
+import { getLeaderboard } from '../db/database.js';
+
 export const pagesRouter = new Hono();
 
 function generateRoomCode() {
@@ -19,11 +21,15 @@ pagesRouter.get('/', (c) => {
     <body>
       <main class="container">
         <h1>Memory Trainer</h1>
-        <p>Zapamatuj si sekvenci barev a potom ji zopakuj.</p>
+        <p>Zapamatuj si sekvenci barev a potom ji zopakuj na ovladači.</p>
 
         <form method="POST" action="/games">
           <button type="submit">Vytvořit novou hru</button>
         </form>
+
+        <p>
+          <a href="/leaderboard">Zobrazit leaderboard</a>
+        </p>
       </main>
     </body>
     </html>
@@ -62,25 +68,32 @@ pagesRouter.get('/game/:roomCode', (c) => {
         </p>
 
         <section class="game-box">
-            <h2 id="status">Čekám na ovladač...</h2>
+          <h2 id="status">Čekám na ovladač...</h2>
 
-            <div class="stats">
-                <p>Level: <strong id="level">-</strong></p>
-                <p>Skóre: <strong id="score">0</strong></p>
-            </div>
+          <label for="playerName">Jméno hráče:</label>
+          <input id="playerName" type="text" value="Hráč" maxlength="30">
 
-            <button id="startGameButton">Start hry</button>
-            <button id="nextLevelButton" hidden>Další level</button>
+          <div class="stats">
+            <p>Level: <strong id="level">-</strong></p>
+            <p>Skóre: <strong id="score">0</strong></p>
+          </div>
 
-            <p id="instruction">Klikni na Start hry a zapamatuj si sekvenci barev.</p>
+          <button id="startGameButton">Start hry</button>
+          <button id="nextLevelButton" hidden>Další level</button>
 
-            <div id="colorDisplay" class="color-display"></div>
+          <p id="instruction">Klikni na Start hry a zapamatuj si sekvenci barev.</p>
 
-            <h3>Tvoje odpověď:</h3>
-            <div id="playerAnswers" class="answer-list"></div>
+          <div id="colorDisplay" class="color-display"></div>
 
-            <p id="lastAnswer">Zatím žádná odpověď.</p>
+          <h3>Tvoje odpověď:</h3>
+          <div id="playerAnswers" class="answer-list"></div>
+
+          <p id="lastAnswer">Zatím žádná odpověď.</p>
         </section>
+
+        <p>
+          <a href="/leaderboard">Leaderboard</a>
+        </p>
       </main>
 
       <script>
@@ -104,15 +117,16 @@ pagesRouter.get('/controller/:roomCode', (c) => {
       <link rel="stylesheet" href="/public/css/style.css">
     </head>
     <body>
-      <main class="container">
+      <main class="container controller-container">
         <h1>Ovladač</h1>
         <p>Místnost: <strong>${roomCode}</strong></p>
+        <p id="controllerStatus">Čekám na začátek hry...</p>
 
         <div class="button-grid">
-          <button data-answer="red">Červená</button>
-          <button data-answer="blue">Modrá</button>
-          <button data-answer="green">Zelená</button>
-          <button data-answer="yellow">Žlutá</button>
+          <button class="color-button red-button" data-answer="red" disabled>Červená</button>
+          <button class="color-button blue-button" data-answer="blue" disabled>Modrá</button>
+          <button class="color-button green-button" data-answer="green" disabled>Zelená</button>
+          <button class="color-button yellow-button" data-answer="yellow" disabled>Žlutá</button>
         </div>
       </main>
 
@@ -124,3 +138,63 @@ pagesRouter.get('/controller/:roomCode', (c) => {
     </html>
   `);
 });
+
+pagesRouter.get('/leaderboard', (c) => {
+    const results = getLeaderboard(10);
+
+    const rows = results.map((result, index) => {
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${escapeHtml(result.player_name)}</td>
+                <td>${result.score}</td>
+                <td>${result.max_level}</td>
+                <td>${new Date(result.created_at).toLocaleString('cs-CZ')}</td>
+            </tr>
+        `;
+    }).join('');
+
+    return c.html(`
+    <!DOCTYPE html>
+    <html lang="cs">
+    <head>
+      <meta charset="UTF-8">
+      <title>Memory Trainer - leaderboard</title>
+      <link rel="stylesheet" href="/public/css/style.css">
+    </head>
+    <body>
+      <main class="container">
+        <h1>Leaderboard</h1>
+
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Hráč</th>
+              <th>Skóre</th>
+              <th>Max level</th>
+              <th>Datum</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="5">Zatím nejsou žádné výsledky.</td></tr>'}
+          </tbody>
+        </table>
+
+        <p>
+          <a href="/">Zpět na úvod</a>
+        </p>
+      </main>
+    </body>
+    </html>
+  `);
+});
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}

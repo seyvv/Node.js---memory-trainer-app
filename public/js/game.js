@@ -9,6 +9,7 @@ const levelElement = document.querySelector('#level');
 const scoreElement = document.querySelector('#score');
 const instructionElement = document.querySelector('#instruction');
 const colorDisplayElement = document.querySelector('#colorDisplay');
+const playerNameInput = document.querySelector('#playerName');
 
 const socket = new WebSocket(`ws://${window.location.host}/ws`);
 
@@ -37,14 +38,25 @@ socket.addEventListener('message', async (event) => {
 
         startGameButton.hidden = true;
         nextLevelButton.hidden = true;
+        playerNameInput.disabled = true;
 
-        await playSequence(message.sequence);
+        await playSequence(
+            message.sequence,
+            message.showTimeMs,
+            message.pauseTimeMs
+        );
 
         instructionElement.textContent = 'Teď zopakuj sekvenci na ovladači.';
+
+        socket.send(JSON.stringify({
+            type: 'sequence-shown',
+            roomCode: roomCode,
+        }));
     }
 
     if (message.type === 'answer-received') {
         lastAnswerElement.textContent = `Poslední odpověď: ${translateColor(message.answer)}`;
+
         playerAnswersElement.textContent = message.playerAnswers
             .map((answer) => translateColor(answer))
             .join(' → ');
@@ -63,22 +75,24 @@ socket.addEventListener('message', async (event) => {
 
             scoreElement.textContent = message.totalScore;
             lastAnswerElement.textContent = `Hotovo za ${seconds} s. Body za level: ${message.roundScore}.`;
-            instructionElement.textContent = 'Sekvenci jsi zopakovala správně. Můžeš pokračovat na další level.';
+            instructionElement.textContent = 'Sekvence byla správně. Můžeš pokračovat na další level.';
 
             nextLevelButton.hidden = false;
         }
 
         if (!message.success) {
             scoreElement.textContent = message.totalScore;
+
             lastAnswerElement.textContent = `Správná sekvence byla: ${message.sequence
                 .map((color) => translateColor(color))
                 .join(' → ')}. Finální skóre: ${message.totalScore}.`;
 
-            instructionElement.textContent = 'Hra skončila. Můžeš spustit novou hru.';
+            instructionElement.textContent = 'Hra skončila. Výsledek byl uložen do leaderboardu.';
 
             startGameButton.textContent = 'Nová hra';
             startGameButton.hidden = false;
             nextLevelButton.hidden = true;
+            playerNameInput.disabled = false;
         }
     }
 });
@@ -87,6 +101,7 @@ startGameButton.addEventListener('click', () => {
     socket.send(JSON.stringify({
         type: 'game-start',
         roomCode: roomCode,
+        playerName: playerNameInput.value.trim() || 'Hráč',
     }));
 });
 
@@ -97,13 +112,13 @@ nextLevelButton.addEventListener('click', () => {
     }));
 });
 
-async function playSequence(sequence) {
+async function playSequence(sequence, showTimeMs = 800, pauseTimeMs = 300) {
     for (const color of sequence) {
         showColor(color);
-        await wait(800);
+        await wait(showTimeMs);
 
         hideColor();
-        await wait(300);
+        await wait(pauseTimeMs);
     }
 }
 
