@@ -21,6 +21,13 @@ function generateSequence(length = 4) {
     return sequence;
 }
 
+function calculateScore(level, durationMs) {
+    const basePoints = level * 100;
+    const timeBonus = Math.max(0, 1000 - Math.floor(durationMs / 10));
+
+    return basePoints + timeBonus;
+}
+
 app.get(
     '/ws',
     upgradeWebSocket((c) => ({
@@ -50,9 +57,12 @@ app.get(
                 }
 
                 if (message.type === 'game-start') {
-                    const sequence = generateSequence(4);
+                    const level = 1;
+                    const sequence = generateSequence(level + 2);
 
                     games.set(message.roomCode, {
+                        level: level,
+                        score: 0,
                         sequence: sequence,
                         playerAnswers: [],
                         startedAt: Date.now(),
@@ -61,6 +71,35 @@ app.get(
 
                     broadcastToRoom(message.roomCode, {
                         type: 'sequence-generated',
+                        level: level,
+                        score: 0,
+                        sequence: sequence,
+                    });
+                }
+
+                if (message.type === 'next-level') {
+                    const game = games.get(message.roomCode);
+
+                    if (!game) {
+                        return;
+                    }
+
+                    const nextLevel = game.level + 1;
+                    const sequence = generateSequence(nextLevel + 2);
+
+                    games.set(message.roomCode, {
+                        level: nextLevel,
+                        score: game.score,
+                        sequence: sequence,
+                        playerAnswers: [],
+                        startedAt: Date.now(),
+                        finished: false,
+                    });
+
+                    broadcastToRoom(message.roomCode, {
+                        type: 'sequence-generated',
+                        level: nextLevel,
+                        score: game.score,
                         sequence: sequence,
                     });
                 }
@@ -98,6 +137,8 @@ app.get(
                             message: 'Špatná odpověď. Konec hry.',
                             sequence: game.sequence,
                             playerAnswers: game.playerAnswers,
+                            level: game.level,
+                            totalScore: game.score,
                         });
 
                         return;
@@ -108,14 +149,20 @@ app.get(
 
                         const finishedAt = Date.now();
                         const durationMs = finishedAt - game.startedAt;
+                        const roundScore = calculateScore(game.level, durationMs);
+
+                        game.score = game.score + roundScore;
 
                         broadcastToRoom(message.roomCode, {
                             type: 'game-finished',
                             success: true,
-                            message: 'Správně! Sekvence byla zopakována.',
+                            message: 'Správně! Můžeš pokračovat na další level.',
                             sequence: game.sequence,
                             playerAnswers: game.playerAnswers,
                             durationMs: durationMs,
+                            level: game.level,
+                            roundScore: roundScore,
+                            totalScore: game.score,
                         });
                     }
                 }

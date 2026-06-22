@@ -3,8 +3,12 @@ const roomCode = window.ROOM_CODE;
 const statusElement = document.querySelector('#status');
 const lastAnswerElement = document.querySelector('#lastAnswer');
 const startGameButton = document.querySelector('#startGameButton');
-const sequenceElement = document.querySelector('#sequence');
+const nextLevelButton = document.querySelector('#nextLevelButton');
 const playerAnswersElement = document.querySelector('#playerAnswers');
+const levelElement = document.querySelector('#level');
+const scoreElement = document.querySelector('#score');
+const instructionElement = document.querySelector('#instruction');
+const colorDisplayElement = document.querySelector('#colorDisplay');
 
 const socket = new WebSocket(`ws://${window.location.host}/ws`);
 
@@ -16,7 +20,7 @@ socket.addEventListener('open', () => {
     }));
 });
 
-socket.addEventListener('message', (event) => {
+socket.addEventListener('message', async (event) => {
     const message = JSON.parse(event.data);
 
     if (message.type === 'user-joined' && message.role === 'controller') {
@@ -24,32 +28,57 @@ socket.addEventListener('message', (event) => {
     }
 
     if (message.type === 'sequence-generated') {
-        sequenceElement.textContent = message.sequence.join(' → ');
+        levelElement.textContent = message.level;
+        scoreElement.textContent = message.score;
+
         playerAnswersElement.textContent = '';
-        lastAnswerElement.textContent = 'Sekvence vygenerována. Teď ji zopakuj na ovladači.';
-        startGameButton.disabled = true;
+        lastAnswerElement.textContent = '';
+        instructionElement.textContent = 'Sleduj sekvenci barev...';
+
+        startGameButton.hidden = true;
+        nextLevelButton.hidden = true;
+
+        await playSequence(message.sequence);
+
+        instructionElement.textContent = 'Teď zopakuj sekvenci na ovladači.';
     }
 
     if (message.type === 'answer-received') {
-        lastAnswerElement.textContent = `Poslední odpověď: ${message.answer}`;
-        playerAnswersElement.textContent = message.playerAnswers.join(' → ');
+        lastAnswerElement.textContent = `Poslední odpověď: ${translateColor(message.answer)}`;
+        playerAnswersElement.textContent = message.playerAnswers
+            .map((answer) => translateColor(answer))
+            .join(' → ');
 
         if (!message.isCurrentAnswerCorrect) {
-            lastAnswerElement.textContent = `Špatná odpověď: ${message.answer}`;
+            lastAnswerElement.textContent = `Špatná odpověď: ${translateColor(message.answer)}`;
         }
     }
 
     if (message.type === 'game-finished') {
         statusElement.textContent = message.message;
-        startGameButton.disabled = false;
+        colorDisplayElement.className = 'color-display';
 
-        if (message.success && message.durationMs) {
+        if (message.success) {
             const seconds = (message.durationMs / 1000).toFixed(2);
-            lastAnswerElement.textContent = `Hotovo za ${seconds} s.`;
+
+            scoreElement.textContent = message.totalScore;
+            lastAnswerElement.textContent = `Hotovo za ${seconds} s. Body za level: ${message.roundScore}.`;
+            instructionElement.textContent = 'Sekvenci jsi zopakovala správně. Můžeš pokračovat na další level.';
+
+            nextLevelButton.hidden = false;
         }
 
         if (!message.success) {
-            lastAnswerElement.textContent = `Správná sekvence byla: ${message.sequence.join(' → ')}`;
+            scoreElement.textContent = message.totalScore;
+            lastAnswerElement.textContent = `Správná sekvence byla: ${message.sequence
+                .map((color) => translateColor(color))
+                .join(' → ')}. Finální skóre: ${message.totalScore}.`;
+
+            instructionElement.textContent = 'Hra skončila. Můžeš spustit novou hru.';
+
+            startGameButton.textContent = 'Nová hra';
+            startGameButton.hidden = false;
+            nextLevelButton.hidden = true;
         }
     }
 });
@@ -60,3 +89,45 @@ startGameButton.addEventListener('click', () => {
         roomCode: roomCode,
     }));
 });
+
+nextLevelButton.addEventListener('click', () => {
+    socket.send(JSON.stringify({
+        type: 'next-level',
+        roomCode: roomCode,
+    }));
+});
+
+async function playSequence(sequence) {
+    for (const color of sequence) {
+        showColor(color);
+        await wait(800);
+
+        hideColor();
+        await wait(300);
+    }
+}
+
+function showColor(color) {
+    colorDisplayElement.className = `color-display ${color} active`;
+}
+
+function hideColor() {
+    colorDisplayElement.className = 'color-display';
+}
+
+function wait(ms) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
+
+function translateColor(color) {
+    const translations = {
+        red: 'červená',
+        blue: 'modrá',
+        green: 'zelená',
+        yellow: 'žlutá',
+    };
+
+    return translations[color] || color;
+}

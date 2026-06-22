@@ -32,6 +32,7 @@ pagesRouter.get('/', (c) => {
 
 pagesRouter.post('/games', (c) => {
     const roomCode = generateRoomCode();
+
     return c.redirect(`/game/${roomCode}`);
 });
 
@@ -61,17 +62,24 @@ pagesRouter.get('/game/:roomCode', (c) => {
         </p>
 
         <section class="game-box">
-          <h2 id="status">Čekám na ovladač...</h2>
+            <h2 id="status">Čekám na ovladač...</h2>
 
-          <button id="startGameButton">Start hry</button>
+            <div class="stats">
+                <p>Level: <strong id="level">-</strong></p>
+                <p>Skóre: <strong id="score">0</strong></p>
+            </div>
 
-          <h3>Sekvence:</h3>
-          <div id="sequence" class="sequence"></div>
+            <button id="startGameButton">Start hry</button>
+            <button id="nextLevelButton" hidden>Další level</button>
 
-          <h3>Odpověď hráče:</h3>
-          <div id="playerAnswers" class="sequence"></div>
+            <p id="instruction">Klikni na Start hry a zapamatuj si sekvenci barev.</p>
 
-          <p id="lastAnswer">Zatím žádná odpověď.</p>
+            <div id="colorDisplay" class="color-display"></div>
+
+            <h3>Tvoje odpověď:</h3>
+            <div id="playerAnswers" class="answer-list"></div>
+
+            <p id="lastAnswer">Zatím žádná odpověď.</p>
         </section>
       </main>
 
