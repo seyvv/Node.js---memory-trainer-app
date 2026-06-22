@@ -78,7 +78,7 @@ pagesRouter.get('/game/:roomCode', (c) => {
             <p>Skóre: <strong id="score">0</strong></p>
           </div>
 
-          <button id="startGameButton">Start hry</button>
+          <button id="startGameButton" disabled>Start hry</button>
           <button id="nextLevelButton" hidden>Další level</button>
 
           <p id="instruction">Klikni na Start hry a zapamatuj si sekvenci barev.</p>

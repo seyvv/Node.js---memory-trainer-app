@@ -11,6 +11,8 @@ const instructionElement = document.querySelector('#instruction');
 const colorDisplayElement = document.querySelector('#colorDisplay');
 const playerNameInput = document.querySelector('#playerName');
 
+let isControllerConnected = false;
+
 const socket = new WebSocket(`ws://${window.location.host}/ws`);
 
 socket.addEventListener('open', () => {
@@ -25,7 +27,11 @@ socket.addEventListener('message', async (event) => {
     const message = JSON.parse(event.data);
 
     if (message.type === 'user-joined' && message.role === 'controller') {
+        isControllerConnected = true;
+
         statusElement.textContent = 'Ovladač je připojený.';
+        instructionElement.textContent = 'Ovladač je připravený. Můžeš spustit hru.';
+        startGameButton.disabled = false;
     }
 
     if (message.type === 'sequence-generated') {
@@ -55,15 +61,11 @@ socket.addEventListener('message', async (event) => {
     }
 
     if (message.type === 'answer-received') {
-        lastAnswerElement.textContent = `Poslední odpověď: ${translateColor(message.answer)}`;
+        lastAnswerElement.textContent = `Zadaná odpověď: ${translateColor(message.answer)}`;
 
         playerAnswersElement.textContent = message.playerAnswers
             .map((answer) => translateColor(answer))
             .join(' → ');
-
-        if (!message.isCurrentAnswerCorrect) {
-            lastAnswerElement.textContent = `Špatná odpověď: ${translateColor(message.answer)}`;
-        }
     }
 
     if (message.type === 'game-finished') {
@@ -83,9 +85,11 @@ socket.addEventListener('message', async (event) => {
         if (!message.success) {
             scoreElement.textContent = message.totalScore;
 
-            lastAnswerElement.textContent = `Správná sekvence byla: ${message.sequence
-                .map((color) => translateColor(color))
-                .join(' → ')}. Finální skóre: ${message.totalScore}.`;
+            lastAnswerElement.textContent = `
+                Správná sekvence: ${message.sequence.map((color) => translateColor(color)).join(' → ')}
+                | Tvoje odpověď: ${message.playerAnswers.map((color) => translateColor(color)).join(' → ')}
+                | Finální skóre: ${message.totalScore}
+            `;
 
             instructionElement.textContent = 'Hra skončila. Výsledek byl uložen do leaderboardu.';
 
@@ -98,6 +102,11 @@ socket.addEventListener('message', async (event) => {
 });
 
 startGameButton.addEventListener('click', () => {
+    if (!isControllerConnected) {
+        instructionElement.textContent = 'Nejdřív otevři ovladač.';
+        return;
+    }
+
     socket.send(JSON.stringify({
         type: 'game-start',
         roomCode: roomCode,

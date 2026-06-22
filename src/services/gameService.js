@@ -86,14 +86,24 @@ export function createNextLevelGame(previousGame) {
 export function checkAnswer(game, answer) {
     game.playerAnswers.push(answer);
 
-    const currentIndex = game.playerAnswers.length - 1;
-    const expectedAnswer = game.sequence[currentIndex];
-    const isCorrect = answer === expectedAnswer;
+    const isSequenceComplete = game.playerAnswers.length === game.sequence.length;
+    const isSequenceCorrect = isSequenceComplete
+        ? evaluateAnswers(game.sequence, game.playerAnswers)
+        : null;
 
     return {
-        isCorrect: isCorrect,
-        expectedAnswer: expectedAnswer,
         playerAnswers: game.playerAnswers,
-        isLevelCompleted: isCorrect && game.playerAnswers.length === game.sequence.length,
+        isSequenceComplete: isSequenceComplete,
+        isSequenceCorrect: isSequenceCorrect,
     };
+}
+
+export function evaluateAnswers(sequence, playerAnswers) {
+    if (sequence.length !== playerAnswers.length) {
+        return false;
+    }
+
+    return sequence.every((color, index) => {
+        return color === playerAnswers[index];
+    });
 }

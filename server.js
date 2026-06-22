@@ -119,13 +119,21 @@ app.get(
                         type: 'answer-received',
                         answer: message.answer,
                         playerAnswers: result.playerAnswers,
-                        isCurrentAnswerCorrect: result.isCorrect,
                     });
 
-                    if (!result.isCorrect) {
-                        game.finished = true;
-                        game.canAnswer = false;
+                    if (!result.isSequenceComplete) {
+                        return;
+                    }
 
+                    game.finished = true;
+                    game.canAnswer = false;
+
+                    broadcastToRoom(message.roomCode, {
+                        type: 'controller-state',
+                        enabled: false,
+                    });
+
+                    if (!result.isSequenceCorrect) {
                         saveScore({
                             playerName: game.playerName,
                             score: game.score,
@@ -133,14 +141,9 @@ app.get(
                         });
 
                         broadcastToRoom(message.roomCode, {
-                            type: 'controller-state',
-                            enabled: false,
-                        });
-
-                        broadcastToRoom(message.roomCode, {
                             type: 'game-finished',
                             success: false,
-                            message: 'Špatná odpověď. Konec hry.',
+                            message: 'Sekvence nebyla správně. Konec hry.',
                             sequence: game.sequence,
                             playerAnswers: game.playerAnswers,
                             level: game.level,
@@ -151,35 +154,26 @@ app.get(
                         return;
                     }
 
-                    if (result.isLevelCompleted) {
-                        game.finished = true;
-                        game.canAnswer = false;
+                    const finishedAt = Date.now();
+                    const durationMs = finishedAt - game.startedAt;
+                    const roundScore = calculateScore(game.level, durationMs);
 
-                        const finishedAt = Date.now();
-                        const durationMs = finishedAt - game.startedAt;
-                        const roundScore = calculateScore(game.level, durationMs);
+                    game.score = game.score + roundScore;
 
-                        game.score = game.score + roundScore;
-
-                        broadcastToRoom(message.roomCode, {
-                            type: 'controller-state',
-                            enabled: false,
-                        });
-
-                        broadcastToRoom(message.roomCode, {
-                            type: 'game-finished',
-                            success: true,
-                            message: 'Správně! Můžeš pokračovat na další level.',
-                            sequence: game.sequence,
-                            playerAnswers: game.playerAnswers,
-                            durationMs: durationMs,
-                            level: game.level,
-                            roundScore: roundScore,
-                            totalScore: game.score,
-                            maxLevel: game.maxLevel,
-                        });
-                    }
+                    broadcastToRoom(message.roomCode, {
+                        type: 'game-finished',
+                        success: true,
+                        message: 'Správně! Můžeš pokračovat na další level.',
+                        sequence: game.sequence,
+                        playerAnswers: game.playerAnswers,
+                        durationMs: durationMs,
+                        level: game.level,
+                        roundScore: roundScore,
+                        totalScore: game.score,
+                        maxLevel: game.maxLevel,
+                    });
                 }
+
             } catch (error) {
                 console.error(error);
             }
