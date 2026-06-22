@@ -20,19 +20,19 @@ pagesRouter.get('/', (c) => {
     </head>
     <body>
       <main class="container">
-        <h1>Memory Trainer</h1>
-        <p>Zapamatuj si sekvenci barev a potom ji zopakuj na ovladači.</p>
+  <h1>Memory Trainer</h1>
+  <p>Zapamatuj si sekvenci barev a potom ji zopakuj na ovladači.</p>
 
-        <form method="POST" action="/games">
-          <button type="submit">Vytvořit novou hru</button>
-        </form>
+  <div class="home-actions">
+    <form method="POST" action="/games">
+      <button type="submit">Vytvořit novou hru</button>
+    </form>
 
-        <p>
-          <a href="/leaderboard">Zobrazit leaderboard</a>
-        </p>
-      </main>
-    </body>
-    </html>
+    <p>
+      <a href="/leaderboard">Zobrazit leaderboard</a>
+    </p>
+  </div>
+</main>
   `);
 });
 
@@ -58,7 +58,7 @@ pagesRouter.get('/game/:roomCode', (c) => {
         <h1>Memory Trainer</h1>
 
         <p>Kód místnosti:</p>
-        <h2>${roomCode}</h2>
+        <h2 class="room-code">${roomCode}</h2>
 
         <p>Ovladač otevři v druhém tabu nebo na mobilu:</p>
         <p>
